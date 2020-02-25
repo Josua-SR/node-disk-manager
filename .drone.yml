@@ -1,0 +1,216 @@
+---
+kind: pipeline
+name: linux-amd64
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+  arch: amd64
+
+workspace:
+  path: /go/src/github.com/openebs/node-disk-manager
+
+steps:
+  - name: dockerfiles
+    image: alpine
+    commands:
+      - sed -e "s|@BASEIMAGE@|$BASEIMAGE|g" ./build/ndm-daemonset/Dockerfile.in >Dockerfile.ndm
+      - sed -e "s|@BASEIMAGE@|$BASEIMAGE|g" ./build/ndm-operator/Dockerfile.in > Dockerfile.ndo
+    environment:
+      BASEIMAGE: ubuntu:16.04
+
+  - name: openseachest
+    image: golang:1.12
+    commands:
+      - git clone --recursive --branch Release-19.06.02 --depth 1 https://github.com/openebs/openSeaChest.git
+      - cd openSeaChest/Make/gcc
+      - make release
+
+  - name: node-disk-manager
+    image: golang:1.12
+    commands:
+      - apt-get update
+      - apt-get install -y libudev-dev
+      - cp openSeaChest/opensea-common/Make/gcc/lib/libopensea-common.a /usr/lib 
+      - cp openSeaChest/opensea-operations/Make/gcc/lib/libopensea-operations.a /usr/lib 
+      - cp openSeaChest/opensea-transport/Make/gcc/lib/libopensea-transport.a /usr/lib
+      - ln -sv $PWD/openSeaChest ../openSeaChest
+      - go get github.com/mitchellh/gox
+      - sh -c build/build.sh
+    environment:
+      XC_OS: linux
+      XC_ARCH: amd64
+      CTLNAME: ndm
+      BUILDPATH: ndm_daemonset
+
+  - name: node-disk-manager-image
+    image: plugins/docker
+    settings:
+      dockerfile: Dockerfile.ndm
+      build_args:
+        - ARCH=amd64
+      registry: quay.io
+      repo: quay.io/josua-sr/node-disk-manager
+      tag: v0.4.7-amd64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+  - name: node-disk-operator
+    image: golang:1.12
+    commands:
+      - apt-get update
+      - apt-get install -y libudev-dev
+      - go get github.com/mitchellh/gox
+      - sh -c build/build.sh
+    environment:
+      XC_OS: linux
+      XC_ARCH: amd64
+      CTLNAME: ndo
+      BUILDPATH: manager
+
+  - name: node-disk-operator-image
+    image: plugins/docker
+    settings:
+      dockerfile: Dockerfile.ndo
+      build_args:
+        - ARCH=amd64
+      registry: quay.io
+      repo: quay.io/josua-sr/node-disk-operator
+      tag: v0.4.7-amd64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+---
+kind: pipeline
+name: linux-arm64
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+  arch: arm64
+
+workspace:
+  path: /go/src/github.com/openebs/node-disk-manager
+
+steps:
+  - name: dockerfiles
+    image: alpine
+    commands:
+      - sed -e "s|@BASEIMAGE@|$BASEIMAGE|g" ./build/ndm-daemonset/Dockerfile.in >Dockerfile.ndm
+      - sed -e "s|@BASEIMAGE@|$BASEIMAGE|g" ./build/ndm-operator/Dockerfile.in > Dockerfile.ndo
+    environment:
+      BASEIMAGE: ubuntu:18.04
+
+  - name: openseachest
+    image: golang:1.12
+    commands:
+      - git clone --recursive --branch Release-19.06.02 --depth 1 https://github.com/openebs/openSeaChest.git
+      - cd openSeaChest/Make/gcc
+      - make release
+
+  - name: node-disk-manager
+    image: golang:1.12
+    commands:
+      - apt-get update
+      - apt-get install -y libudev-dev
+      - cp openSeaChest/opensea-common/Make/gcc/lib/libopensea-common.a /usr/lib 
+      - cp openSeaChest/opensea-operations/Make/gcc/lib/libopensea-operations.a /usr/lib 
+      - cp openSeaChest/opensea-transport/Make/gcc/lib/libopensea-transport.a /usr/lib
+      - ln -sv $PWD/openSeaChest ../openSeaChest
+      - go get github.com/mitchellh/gox
+      - sh -c build/build.sh
+    environment:
+      XC_OS: linux
+      XC_ARCH: arm64
+      CTLNAME: ndm
+      BUILDPATH: ndm_daemonset
+
+  - name: node-disk-manager-image
+    image: plugins/docker
+    settings:
+      dockerfile: Dockerfile.ndm
+      build_args:
+        - ARCH=arm64
+      registry: quay.io
+      repo: quay.io/josua-sr/node-disk-manager
+      tag: v0.4.7-arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+  - name: node-disk-operator
+    image: golang:1.12
+    commands:
+      - apt-get update
+      - apt-get install -y libudev-dev
+      - go get github.com/mitchellh/gox
+      - sh -c build/build.sh
+    environment:
+      XC_OS: linux
+      XC_ARCH: arm64
+      CTLNAME: ndo
+      BUILDPATH: manager
+
+  - name: node-disk-operator-image
+    image: plugins/docker
+    settings:
+      dockerfile: Dockerfile.ndo
+      build_args:
+        - ARCH=arm64
+      registry: quay.io
+      repo: quay.io/josua-sr/node-disk-operator
+      tag: v0.4.7-arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+---
+kind: pipeline
+name: manifest
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+
+steps:
+  - name: node-disk-manager-image
+    image: plugins/manifest
+    settings:
+      target: quay.io/josua-sr/node-disk-manager:v0.4.7
+      template: quay.io/josua-sr/node-disk-manager:v0.4.7-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+  - name: node-disk-operator-image
+    image: plugins/manifest
+    settings:
+      target: quay.io/josua-sr/node-disk-operator:v0.4.7
+      template: quay.io/josua-sr/node-disk-operator:v0.4.7-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+depends_on:
+- linux-amd64
+- linux-arm64

@@ -42,8 +42,8 @@ moveCompiled(){
     DEV_PLATFORM="./bin/$(go env GOOS)_$(go env GOARCH)"
     DEV_PLATFORM_OUTPUT=$(find "${DEV_PLATFORM}" -mindepth 1 -maxdepth 1 -type f)
     for F in ${DEV_PLATFORM_OUTPUT}; do
-        cp "${F}" bin/
-        cp "${F}" "${MAIN_GOPATH[*]}"/bin/
+        cp -v "${F}" bin/
+        cp -v "${F}" "${MAIN_GOPATH[*]}"/bin/
     done
 
     echo "Moved all the compiled things successfully to :${MAIN_GOPATH[*]}/bin/"

@@ -7,6 +7,6 @@ FROM @BASEIMAGE@
 
 ARG ARCH
 
-ADD bin/${ARCH}/ndo /usr/local/bin/ndo
+ADD bin/linux_${ARCH}/ndo /usr/local/bin/ndo
 
 ENTRYPOINT ["/usr/local/bin/ndo"]
